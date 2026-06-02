@@ -1,0 +1,10 @@
+name = "telemetry-worker"
+main = "src/index.ts"
+compatibility_date = "2024-05-29"
+compatibility_flags = ["nodejs_compat"]
+
+# We will fill database_id here after creating it
+[[d1_databases]]
+binding = "DB"
+database_name = "ff14_oopsie_telemetry"
+database_id = "b2479b6c-844e-4e87-899d-8d7a33810cea"
