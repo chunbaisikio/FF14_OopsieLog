@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useAppStore } from './index';
+import { resolvePersistedStorageValue, useAppStore } from './index';
 
 describe('App Store Player State Machine', () => {
   beforeEach(() => {
@@ -87,5 +87,23 @@ describe('App Store Player State Machine', () => {
     const mistakeAfter = useAppStore.getState().mistakes[0];
     expect(mistakeAfter.playerId).not.toBe(playerId);
     expect(mistakeAfter.playerId).toMatch(/^删除玩家_[A-Z0-9]{4}$/);
+  });
+
+  it('should keep locally cached persisted data when remote workspace storage is empty', () => {
+    const fallbackValue = JSON.stringify({ state: { teams: [{ id: 'team-1' }] }, version: 0 });
+
+    expect(resolvePersistedStorageValue(null, fallbackValue)).toBe(fallbackValue);
+    expect(resolvePersistedStorageValue(undefined, fallbackValue)).toBe(fallbackValue);
+  });
+
+  it('should assign a fresh id when duplicating a team object', () => {
+    useAppStore.getState().addTeam({ name: 'Original Team', bossId: 'b1', players: [] });
+
+    const originalTeam = useAppStore.getState().teams[0];
+    useAppStore.getState().addTeam({ ...(originalTeam as typeof originalTeam & { id?: string }), name: 'Copied Team' });
+
+    const teams = useAppStore.getState().teams;
+    expect(teams).toHaveLength(2);
+    expect(new Set(teams.map((team) => team.id)).size).toBe(2);
   });
 });

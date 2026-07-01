@@ -728,8 +728,9 @@ export default function Teams() {
                 <button
                   onClick={() => {
                     if (confirm('确认复制该队伍的全部设置与成员名单到新队伍吗？')) {
+                      const { id: _sourceTeamId, ...teamToCopy } = activeTeam;
                       const newTeam = {
-                        ...activeTeam,
+                        ...teamToCopy,
                         name: `${activeTeam.name} (复制)`
                       };
                       addTeam(newTeam);

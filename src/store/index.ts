@@ -3,13 +3,22 @@ import { persist, createJSONStorage, type StateStorage } from 'zustand/middlewar
 import { getWorkspaceScopedStorageKey, getWorkspaceSession } from '../utils/session';
 import { fetchJson } from '../utils/http';
 
+export function resolvePersistedStorageValue(remoteValue: unknown, fallbackValue: string | null): string | null {
+  if (remoteValue === null || remoteValue === undefined) {
+    return fallbackValue;
+  }
+
+  return typeof remoteValue === 'string' ? remoteValue : JSON.stringify(remoteValue);
+}
+
 const apiStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     const session = getWorkspaceSession();
     const scopedKey = getWorkspaceScopedStorageKey(name);
+    const fallbackValue = localStorage.getItem(scopedKey);
 
     if (!session) {
-      return localStorage.getItem(scopedKey);
+      return fallbackValue;
     }
 
     try {
@@ -19,24 +28,28 @@ const apiStorage: StateStorage = {
         actorPasscode: session.passcode
       });
       const data = await fetchJson<{ value: unknown }>('/api/store?' + params.toString());
-      return data.value ? JSON.stringify(data.value) : null;
+      return resolvePersistedStorageValue(data.value, fallbackValue);
     } catch (e) {
       console.error('API Fetch error:', e);
     }
-    return localStorage.getItem(scopedKey);
+    return fallbackValue;
   },
   setItem: async (name: string, value: string): Promise<void> => {
     const session = getWorkspaceSession();
     const scopedKey = getWorkspaceScopedStorageKey(name);
 
     localStorage.setItem(scopedKey, value); // Fallback local write
+    if (!session) {
+      return;
+    }
+
     try {
       await fetchJson<{ success: boolean }>('/api/store', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          workspaceId: session?.workspaceId,
-          actorPasscode: session?.passcode,
+          workspaceId: session.workspaceId,
+          actorPasscode: session.passcode,
           key: scopedKey,
           value: JSON.parse(value)
         })
@@ -325,12 +338,13 @@ export const useAppStore = create<AppState>()(
 
       // --- Teams & Players ---
       addTeam: (team) => set((state) => {
+        const { id: _ignoredTeamId, ...teamPayload } = team as Omit<Team, 'id'> & { id?: string };
         const newTeam = { 
           id: genId(),
           dayResetTime: '04:00',
           errorLevels: ['团灭'],
           celebrationMode: false,
-          ...team, 
+          ...teamPayload,
         };
         return {
           teams: [...state.teams, newTeam],
